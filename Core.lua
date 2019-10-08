@@ -7,12 +7,9 @@ local tinsert = tinsert
 local tonumber = tonumber
 
 -- WoW API / Variables
-local C_ContributionCollector_GetState = C_ContributionCollector.GetState
-local C_TaskQuest_GetQuestTimeLeftMinutes = C_TaskQuest.GetQuestTimeLeftMinutes
 local CreateFrame = CreateFrame
 local EJ_GetEncounterInfo = EJ_GetEncounterInfo
 local EJ_GetInstanceInfo = EJ_GetInstanceInfo
-local Enum_ContributionState = Enum.ContributionState
 local GameTooltip = GameTooltip
 local GetAchievementInfo = GetAchievementInfo
 local GetDifficultyInfo = GetDifficultyInfo
@@ -37,50 +34,16 @@ local RED_FONT_COLOR = RED_FONT_COLOR
 local _, AddOn = ...
 --_G[AddOnName] = AddOn
 
---local function debug(v)
--- if type(v) == "string" then
---   print("|cff00aeff["..AddOnName.."]:|r "..v)
--- elseif type(v) == "table" then
---   LoadAddOn("Blizzard_DebugTools")
---   print("|cff00aeff["..AddOnName.."]:|r ")
---   DevTools_Dump(v)
--- end
---end
-
-function AddOn:RequestWarfrontInfo()
-  local stromgardeState, darkshoreState
-
-  if UnitFactionGroup("player") == "Horde" then
-    self.worldBosses[5].encounters[4].encounterID = 2212
-    self.worldBosses[5].encounters[4].questID = 52848
-    self.worldBosses[5].encounters[8].encounterID = 2329
-    self.worldBosses[5].encounters[8].questID = 54896
-
-    stromgardeState = C_ContributionCollector_GetState(116)
-    darkshoreState = C_ContributionCollector_GetState(117)
+local function debug(n, v)
+  if type(v) == "table" then
+    LoadAddOn("Blizzard_DebugTools")
+    print("|cff00aeff[AGL]:|r "..n..":")
+    DevTools_Dump(v)
   else
-    self.worldBosses[5].encounters[4].encounterID = 2213
-    self.worldBosses[5].encounters[4].questID = 52847
-    self.worldBosses[5].encounters[8].encounterID = 2345
-    self.worldBosses[5].encounters[8].questID = 54895
-
-    stromgardeState = C_ContributionCollector_GetState(11)
-    darkshoreState = C_ContributionCollector_GetState(118)
-  end
-
-  self.isStromgardeAvailable = false
-  self.isDarkshoreAvailable = false
-
-  if (stromgardeState == Enum_ContributionState.Building or stromgardeState == Enum_ContributionState.Active) and (darkshoreState == Enum_ContributionState.Building or darkshoreState == Enum_ContributionState.Active) then
-    self.isStromgardeAvailable = true
-    self.isDarkshoreAvailable = true
-    self.worldBosses[5].numEncounters = 4
-  elseif stromgardeState == Enum_ContributionState.Building or stromgardeState == Enum_ContributionState.Active then
-    self.isStromgardeAvailable = true
-    self.worldBosses[5].numEncounters = 3
-  elseif darkshoreState == Enum_ContributionState.Building or darkshoreState == Enum_ContributionState.Active then
-    self.isDarkshoreAvailable = true
-    self.worldBosses[5].numEncounters = 3
+    if not v then
+      v = "nil"
+    end
+    print("|cff00aeff[AGL]:|r "..n..": "..v)
   end
 end
 
@@ -95,15 +58,8 @@ function AddOn:GetSavedWorldBossInfo(instanceIndex)
   local numEncounters = self.worldBosses[instanceIndex].numEncounters
   local numCompleted = 0
 
-  self:RequestWarfrontInfo()
-
   for encounterIndex, encounter in ipairs(self.worldBosses[instanceIndex].encounters) do
     local isDefeated = IsQuestFlaggedCompleted(encounter.questID)
-    if instanceIndex == 5 and encounterIndex == 4 then
-      isDefeated = isDefeated and self.isStromgardeAvailable
-    elseif instanceIndex == 5 and encounterIndex == 8 then
-      isDefeated = isDefeated and self.isDarkshoreAvailable
-    end
     if isDefeated then
       locked = true
       numCompleted = numCompleted + 1
@@ -142,7 +98,7 @@ function AddOn:UpdateSavedInstances()
 
     if instanceIndex <= savedInstances then
       instanceName, instanceID, instanceReset, instanceDifficulty, locked, extended, instanceIDMostSig, isRaid, maxPlayers, difficultyName, numEncounters, numCompleted = GetSavedInstanceInfo(instanceIndex)
-      instanceID = self.instances[tonumber(GetSavedInstanceChatLink(instanceIndex):match(":(%d+)"))]
+      instanceID = self.instances[tonumber(GetSavedInstanceChatLink(instanceIndex):match(":(%d+):"))]
 
       if instanceID == 777 then
         numEncounters = 3 -- Fixes wrong encounters count for Assault on Violet Hold
@@ -179,16 +135,16 @@ function AddOn:UpdateSavedInstances()
 
       while self:GetSavedWorldBossEncounterInfo(instanceIndex - savedInstances, encounterIndex) do
         local bossName, isKilled = self:GetSavedWorldBossEncounterInfo(instanceIndex - savedInstances, encounterIndex)
-        local isAvailable
-        if instanceIndex - savedInstances == 5 and encounterIndex == 4 then
-          isAvailable = self.isStromgardeAvailable
-          isKilled = isKilled and isAvailable
-        elseif instanceIndex - savedInstances == 5 and encounterIndex == 8 then
-          isAvailable = self.isDarkshoreAvailable
-          isKilled = isKilled and isAvailable
-        elseif instanceIndex - savedInstances == 5 then
-          isAvailable = C_TaskQuest_GetQuestTimeLeftMinutes(self.worldBosses[instanceIndex - savedInstances].encounters[encounterIndex].questID) ~= nil
-        end
+        local isAvailable = true
+        -- if instanceIndex - savedInstances == 5 and encounterIndex == 4 then
+        --   isAvailable = self.isStromgardeAvailable
+        --   isKilled = isKilled and isAvailable
+        -- elseif instanceIndex - savedInstances == 5 and encounterIndex == 8 then
+        --   isAvailable = self.isDarkshoreAvailable
+        --   isKilled = isKilled and isAvailable
+        -- elseif instanceIndex - savedInstances == 5 then
+        --   isAvailable = C_TaskQuest_GetQuestTimeLeftMinutes(self.worldBosses[instanceIndex - savedInstances].encounters[encounterIndex].questID) ~= nil
+        -- end
         tinsert(encounters, {
           bossName = bossName,
           isKilled = isKilled,
@@ -199,6 +155,7 @@ function AddOn:UpdateSavedInstances()
     end
 
     if locked or extended then
+      debug("instanceID", instanceID)
       self.instancesLockouts[instanceID] = self.instancesLockouts[instanceID] or {}
       tinsert(self.instancesLockouts[instanceID], {
         encounters = encounters,
@@ -257,9 +214,9 @@ function AddOn:CreateStatusFrame(instanceButton, difficulty)
   local completeFrame = CreateFrame("Frame", nil, statusFrame)
   completeFrame:SetSize(16, 16)
 
-  completeFrame.texture = completeFrame:CreateTexture(nil, "ARTWORK", "GreenCheckMarkTemplate")
-  completeFrame.texture:ClearAllPoints()
-  completeFrame.texture:SetPoint("CENTER")
+  -- completeFrame.texture = completeFrame:CreateTexture(nil, "ARTWORK", "GreenCheckMarkTemplate")
+  -- completeFrame.texture:ClearAllPoints()
+  -- completeFrame.texture:SetPoint("CENTER")
 
   local progressFrame = statusFrame:CreateFontString(nil, nil, "GameFontNormalSmallLeft")
 
