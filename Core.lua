@@ -155,7 +155,6 @@ function AddOn:UpdateSavedInstances()
     end
 
     if locked or extended then
-      debug("instanceID", instanceID)
       self.instancesLockouts[instanceID] = self.instancesLockouts[instanceID] or {}
       tinsert(self.instancesLockouts[instanceID], {
         encounters = encounters,
